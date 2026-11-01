@@ -15,11 +15,13 @@ setup: ## install the locked dependencies and the Playwright chromium browser
 build: ## compile ESM + CJS + browser bundles, write dist/stats.json, check the README size table
 	bun run build
 
-lint: ## oxlint (warnings fail) and strict tsc over src, scripts and tests
+# The type tests compile against the shipped declarations (dist/index.d.ts), so every type-check builds first;
+# a fresh checkout (CI) has no dist/.
+lint: build ## oxlint (warnings fail) and strict tsc over src, scripts and tests
 	bun run lint
 	bun run typecheck
 
-typecheck: ## strict tsc type-check (no emit)
+typecheck: build ## strict tsc type-check (no emit)
 	bun run typecheck
 
 # The browser suite loads dist/, so every test verb builds first.
@@ -29,7 +31,7 @@ test: build ## vitest: node project + real Chromium project, no coverage
 test-browser: build ## vitest Chromium project only
 	bun run test:browser
 
-test-types: ## compile-only positive/negative API type tests
+test-types: build ## compile-only positive/negative API type tests
 	bun run test:types
 
 coverage: build ## vitest with v8 coverage on src/; prints the `All files` table

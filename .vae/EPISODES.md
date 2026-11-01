@@ -30,3 +30,5 @@ Wrap: EVERY lead becomes a test | .vae/VERIFY.py rule | one MEMORY line with BC,
 2026-11-01T01:38:54Z s=eb20f35d FINDING docs/assets/site.css|empty code lines learn=none: visual layout detail; no rendered-height check would be more than a pinned pixel value
 2026-11-01T01:42:10Z s=eb20f35d DONE fp=9cd35c681abb cov=100.0% paths=.github/workflows/verify.yml,AGENTS.md,ARCH.md,Makefile(+42)
 2026-11-01T01:42:10Z s=eb20f35d FINDING docs/index.html:577|CTA title learn=none: copy change by the maintainer, nothing to verify mechanically
+2026-11-01T01:47:40Z s=eb20f35d DONE fp=ec967898137a cov=100.0% paths=Makefile
+2026-11-01T01:47:40Z s=eb20f35d FINDING Makefile:lint|typecheck|test-types learn=memory: .vae/MEMORY.md: CI starts without dist/; verbs that read dist/ depend on build; check with git clone + make verify
