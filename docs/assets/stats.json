@@ -1,0 +1,21 @@
+{
+  "package": "defuss-query",
+  "version": "0.2.0",
+  "files": {
+    "all.js": {
+      "bytes": 30219,
+      "gzip": 8638,
+      "brotli": 7453
+    },
+    "all.min.js": {
+      "bytes": 11342,
+      "gzip": 4203,
+      "brotli": 3714
+    },
+    "global.min.js": {
+      "bytes": 11078,
+      "gzip": 4112,
+      "brotli": 3626
+    }
+  }
+}

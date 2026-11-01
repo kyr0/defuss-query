@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Task board · defuss-query demo</title>
+  <meta name="description" content="A task board that re-renders its whole list with defuss-query on every change, with an inspector of the elements each render kept and created.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E">
+  <script>
+    // Before paint: the theme the landing page saved, else the OS default (same key as the parent page).
+    let saved = '';
+    try {
+      const raw = JSON.parse(localStorage.getItem('defuss-shadcn-theme'));
+      saved = raw && raw.format === 'defuss-store' ? raw.value : raw;
+    } catch {}
+    if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.style.colorScheme = 'dark';
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/core.min.css" integrity="sha384-qUQCm/MM2DNkdT3uEdx8Mpocj+GwXlgLat0FnWv657c16tHWOouZFT2nV7kg5pBE" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/button/button.min.css" integrity="sha384-NaEvhCi978EYi1nNa3yGKQWPPJ5+YLSNr39QLSC+dxBQmSjbihv6TUJRGSbwFLQ9" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/badge/badge.min.css" integrity="sha384-NNI69Enr0TSXrsDXG2q2ZaendlVi+EO3q+g2gmqUdQefxH+YLL5mwt7gfF9EWa3p" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/card/card.min.css" integrity="sha384-NbylcB6bPzEgPEsWOCCr7+hNO7CZwRZXUK5A8lk1+jifuYaomZ3pLnfGfI8JVhqp" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/separator/separator.min.css" integrity="sha384-a/9dcPnG/XfqgHYniPjEHHNgz+rFcWzvhRWda+MIqvNlFbNuWE7wG+oR2n5xJMa4" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/tabs/tabs.min.css" integrity="sha384-Bkzg4gwXPNqOXk6jJ0I7+qpuueEFT3itLDTwB2xEjKU6MYRXUAAbi1UtUQ/UgUdg" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/label/label.min.css" integrity="sha384-jHN+wAiwL8pWAcRiCCIr5G8vf4g7iOIwOXKv2G1tC2Az8v8V2mqpXWL1sR7zY2gk" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/input/input.min.css" integrity="sha384-voZW3ikP7jEfIH36X9KZAbp0cbLdS0q15wTAs7c2QyUIUZLgZ2iQEjlp5cVhpzto" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/form/form.min.css" integrity="sha384-lrFgBbjb7AD7/Hoyuu5+av9KdmBjPuZeafjolSBBUgplYldnE+OFKaSCpleS5u+p" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/checkbox/checkbox.min.css" integrity="sha384-/dRq0plKqSf93HGkBsWi0prAYt8H+PGYuKbG0TnxrqgsxMa/aqqpoubcPRElQCT5" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/alert/alert.min.css" integrity="sha384-iFg1VFDTfa0nhEJxPClFAq2glg04nw8k0R+C4YNaJsI2g9kwrHMlXE6kowBJa6Cj" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/kbd/kbd.min.css" integrity="sha384-NzZrbqtjNX99BshtzgrnlQYhkh2kHwRVzuTFBYtEG4qqG9duOLK4uSs+fwCzYSXO" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/switch/switch.min.css" integrity="sha384-p0ZAV8e8rIm7jFrSAKnqXIpw/8f6PKIFIz06EXI9cFRYICSTveEuhZ7SVAUQTXZx" crossorigin="anonymous">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="board">
+  <header class="board-bar">
+    <div class="board-title">
+      <h1>Task board</h1>
+      <span class="badge" data-variant="secondary" data-size="sm" id="count-open">0 open</span>
+      <span class="badge" data-variant="outline" data-size="sm" id="count-done">0 done</span>
+    </div>
+    <span class="board-version" id="query-version">defuss-query</span>
+  </header>
+
+  <main class="board-main">
+    <section class="card board-app" aria-labelledby="app-title">
+      <h2 class="sr-only" id="app-title">Tasks</h2>
+      <form id="add-form" class="add-form" autocomplete="off">
+        <div class="add-row">
+          <label class="sr-only" for="new-title">New task</label>
+          <input class="input" id="new-title" name="title" placeholder="New task, try typing &lt;b&gt;markup&lt;/b&gt;" maxlength="80">
+          <button class="btn" type="submit" name="action" value="open">Add</button>
+          <button class="btn" data-variant="secondary" type="submit" name="action" value="done">Add as done</button>
+        </div>
+        <fieldset class="add-tags">
+          <legend class="sr-only">Tags</legend>
+          <label><input class="checkbox" type="checkbox" name="tag" value="dom" checked> dom</label>
+          <label><input class="checkbox" type="checkbox" name="tag" value="morph"> morph</label>
+          <label><input class="checkbox" type="checkbox" name="tag" value="forms"> forms</label>
+        </fieldset>
+      </form>
+
+      <div class="toolbar">
+        <div class="segmented" id="filters" role="group" aria-label="Filter">
+          <button type="button" class="btn" data-variant="outline" data-size="sm" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" class="btn" data-variant="outline" data-size="sm" data-filter="open" aria-pressed="false">Open</button>
+          <button type="button" class="btn" data-variant="outline" data-size="sm" data-filter="done" aria-pressed="false">Done</button>
+        </div>
+        <div class="toolbar-actions">
+          <button type="button" class="btn" data-variant="ghost" data-size="sm" id="sort">Sort A to Z</button>
+          <button type="button" class="btn" data-variant="ghost" data-size="sm" id="shuffle-once">Shuffle</button>
+          <button type="button" class="btn" data-variant="ghost" data-size="sm" id="reverse">Reverse with fade</button>
+        </div>
+      </div>
+      <div class="switch-item">
+        <input class="switch" type="checkbox" role="switch" id="auto-shuffle">
+        <label for="auto-shuffle">Shuffle every 1.5 s</label>
+      </div>
+
+      <ul class="tasks" id="tasks" aria-live="off"></ul>
+
+      <div class="app-foot">
+        <button type="button" class="btn" data-variant="outline" data-size="sm" id="clear-done">Clear done</button>
+        <span class="hint">The number on each row is its DOM node: it stays while morph keeps the element.</span>
+      </div>
+    </section>
+
+    <aside class="card board-inspector" aria-labelledby="inspector-title">
+      <h2 class="inspector-title" id="inspector-title">Inspector</h2>
+      <dl class="stats">
+        <div><dt>Rows kept</dt><dd id="stat-kept">0</dd></div>
+        <div><dt>Rows created</dt><dd id="stat-created">0</dd></div>
+        <div><dt>Rows removed</dt><dd id="stat-removed">0</dd></div>
+        <div><dt>Renders</dt><dd id="stat-renders">0</dd></div>
+        <div><dt>Last render</dt><dd id="stat-ms">0 ms</dd></div>
+      </dl>
+      <h3 class="inspector-sub">Log</h3>
+      <ol class="log" id="log"></ol>
+      <h3 class="inspector-sub">Last submit: <code>form(event.submitter)</code></h3>
+      <pre class="form-out" id="form-out">Submit the form to see its FormData.</pre>
+    </aside>
+  </main>
+</div>
+<script type="module" src="../assets/defuss-morph.min.js"></script>
+<script type="module" src="../assets/defuss-query.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

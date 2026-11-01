@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>defuss-query · jQuery-shaped DOM code on a morphing engine</title>
+  <meta name="description" content="defuss-query: a tiny, jQuery-shaped DOM API whose content writes go through defuss-morph, so updates keep node identity, focus, form state and listeners. Native selectors, real Arrays, native events and FormData.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E">
+  <script>
+    // Before paint, before df$ exists (defuss-shadcn Dark Mode guide): the saved choice, else the OS default.
+    let saved = '';
+    try {
+      const raw = JSON.parse(localStorage.getItem('defuss-shadcn-theme'));
+      saved = raw && raw.format === 'defuss-store' ? raw.value : raw;
+    } catch {}
+    if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.style.colorScheme = 'dark';
+    }
+  </script>
+  <!-- defuss-shadcn stylesheets from jsDelivr, one release, pinned by Subresource Integrity. Only CSS: the page's
+       behavior runs on the defuss-query bundle this site documents. -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/core.min.css" integrity="sha384-qUQCm/MM2DNkdT3uEdx8Mpocj+GwXlgLat0FnWv657c16tHWOouZFT2nV7kg5pBE" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/theme/utils/shapes.min.css" integrity="sha384-afvtGYqFGzjo38FCOZzKDSW80xXPxJ2stLo6Frem9v0u+krFuFSgSymjNrkFFO5B" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/button/button.min.css" integrity="sha384-NaEvhCi978EYi1nNa3yGKQWPPJ5+YLSNr39QLSC+dxBQmSjbihv6TUJRGSbwFLQ9" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/badge/badge.min.css" integrity="sha384-NNI69Enr0TSXrsDXG2q2ZaendlVi+EO3q+g2gmqUdQefxH+YLL5mwt7gfF9EWa3p" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/card/card.min.css" integrity="sha384-NbylcB6bPzEgPEsWOCCr7+hNO7CZwRZXUK5A8lk1+jifuYaomZ3pLnfGfI8JVhqp" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/separator/separator.min.css" integrity="sha384-a/9dcPnG/XfqgHYniPjEHHNgz+rFcWzvhRWda+MIqvNlFbNuWE7wG+oR2n5xJMa4" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/table/table.min.css" integrity="sha384-nc0936E2Rmq76jz1FNuQU4/eGioiNOXh1wG8FkioHHvP2MritaJ1T1JIoTfANAh6" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/tabs/tabs.min.css" integrity="sha384-Bkzg4gwXPNqOXk6jJ0I7+qpuueEFT3itLDTwB2xEjKU6MYRXUAAbi1UtUQ/UgUdg" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/label/label.min.css" integrity="sha384-jHN+wAiwL8pWAcRiCCIr5G8vf4g7iOIwOXKv2G1tC2Az8v8V2mqpXWL1sR7zY2gk" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/input/input.min.css" integrity="sha384-voZW3ikP7jEfIH36X9KZAbp0cbLdS0q15wTAs7c2QyUIUZLgZ2iQEjlp5cVhpzto" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/form/form.min.css" integrity="sha384-lrFgBbjb7AD7/Hoyuu5+av9KdmBjPuZeafjolSBBUgplYldnE+OFKaSCpleS5u+p" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/checkbox/checkbox.min.css" integrity="sha384-/dRq0plKqSf93HGkBsWi0prAYt8H+PGYuKbG0TnxrqgsxMa/aqqpoubcPRElQCT5" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/alert/alert.min.css" integrity="sha384-iFg1VFDTfa0nhEJxPClFAq2glg04nw8k0R+C4YNaJsI2g9kwrHMlXE6kowBJa6Cj" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/kbd/kbd.min.css" integrity="sha384-NzZrbqtjNX99BshtzgrnlQYhkh2kHwRVzuTFBYtEG4qqG9duOLK4uSs+fwCzYSXO" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/iframe/iframe.min.css" integrity="sha384-sCc8YJF3wGyUdtoZ+jh5EY0ItYFEtPT3mjtKsUZF13lb4gu/dUS4uiBCd0lGX9A6" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/swap/swap.min.css" integrity="sha384-ynEWV5AQlXwRCsiMM68ISuEK0tVwwk1pVa3H0nlcIRtzAX2sgG0doNiNnv/mo2MC" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/sheet/sheet.min.css" integrity="sha384-t+eekff9KPaWRgSuwFpKj9U0xP+EOCGasVpCLZKhvHBAITQm7yDyR84jcQjqSFLm" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/accordion/accordion.min.css" integrity="sha384-KlyAALDkB2mmdlUVzlW82awEMZ2N57sq+QL2qn0CJtBKf0HFV6/HuAXzVtCKFHn2" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/site-header/site-header.min.css" integrity="sha384-VnVyhVmaHLSn1lS36WGVwwmsYH7eCLgH3Rw5ZJLwDR63Ou96UJQJ7SllbLHde7XP" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/navigation-menu/navigation-menu.min.css" integrity="sha384-5ppZ0kNJKhpsbIpHPaOwt69z9hGHOEOC7U79DT6I/2iACNnMax6HIv6HC40RiRT0" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/hero/hero.min.css" integrity="sha384-n36vWA+pic8J0JHogExZt1CYlxU17Q1NyXpbheOMcbCFj2dWDNhelutDnwZ5AfLK" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/section-header/section-header.min.css" integrity="sha384-V8vTKghKqIbo4jIGTO27R6krE4IM0PknVAGuMHRW1jf0llQLr9KH2OpGCy7AdvmH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/stats/stats.min.css" integrity="sha384-t82krhOWWMHeeZ0nLk+YUe4umovWh1mjKEIf1GZDSYhLTfc5cTJUy3bBO9a8BcUK" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/code-block/code-block.min.css" integrity="sha384-QlqUVVimgiCNpwjC6d6ZVbS+5mfJbKMU4MTGoOfkCyT6eXt9tUHFIh/3Ei86a+ms" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/process-step/process-step.min.css" integrity="sha384-eNG1wdxOK0TzGcwTDUzkvd6RztLX8yAdvme7FMRVHJ6E9WEyIdyg8vf3iN8nHTRN" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/mockup-code/mockup-code.min.css" integrity="sha384-VKWAg60LrRU5HYKd4sH+UUA0wpS0KGPQR5VfEO4Y6YjTJ9jmCjewu0BE+kevls9n" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/text-rotate/text-rotate.min.css" integrity="sha384-apwXithMkviX0Xi/QpkDREFD35n38TmStpnARK1Io1dh6bKV2POia1C1PKf3xGlk" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/parallax/parallax.min.css" integrity="sha384-7oE5KKtNKOS7YgTh8e/jM39HcMCdhYmOHFsyZVVZC2K9qnmkGqnGW8HCOYCk5L1W" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/cta/cta.min.css" integrity="sha384-/u8Y+V2s/CRV8G7wDMx5N0MvarseVN3dT06WMElUuEt9rqez1N3D5+WN5N+ukHmk" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/site-footer/site-footer.min.css" integrity="sha384-T7RLc3sEhj2UfOmL1CwlMqozEf+aY04OVpaLL+wPgQWW2CJ945nZfKndme4RZWrk" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/defuss-shadcn@0.9.11/dist/components/switch/switch.min.css" integrity="sha384-p0ZAV8e8rIm7jFrSAKnqXIpw/8f6PKIFIz06EXI9cFRYICSTveEuhZ7SVAUQTXZx" crossorigin="anonymous">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<svg class="sr-only" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-17.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-7-7 7 7-7 7"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14m7-7-7 7-7-7"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M7 7h10v10M7 17 17 7"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12.83 2.18 8.58 3.9a1 1 0 0 1 0 1.83l-8.58 3.9a2 2 0 0 1-1.66 0L2.6 7.91a1 1 0 0 1 0-1.83l8.58-3.9a2 2 0 0 1 1.66 0Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65M22 12.65l-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+  <symbol id="i-form" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></symbol>
+  <symbol id="i-feather" viewBox="0 0 24 24"><path d="M12.67 19a2 2 0 0 0 1.416-.588l6.154-6.172a6 6 0 0 0-8.49-8.49L5.586 9.914A2 2 0 0 0 5 11.328V18a1 1 0 0 0 1 1z"/><path d="M16 8 2 22M17.5 15H9"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6m8 14h8"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2m16 0h2m-7-1v2m-6-2v2"/></symbol>
+  <symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12m0 0 8.7-5M12 12 3.3 7"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-linkedin" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6zM2 9h4v12H2z"/><circle cx="4" cy="4" r="2"/></symbol>
+  <symbol id="i-github" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M10 12.5 8 15l2 2.5m4-5 2 2.5-2 2.5M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/></symbol>
+</svg>
+
+<div id="top" class="dq-page">
+  <header class="mk-header" data-variant="floating">
+    <div class="mk-header-inner">
+      <a href="#top" class="mk-header-brand"><svg class="dq-icon dq-brand-icon" aria-hidden="true"><use href="#i-logo"/></svg><span class="mk-header-name">defuss-query</span></a>
+      <nav class="mk-header-nav" aria-label="Main">
+        <ul class="nav-menu-list">
+          <li class="nav-menu-item"><a class="nav-menu-link" href="#demo">Demo</a></li>
+          <li class="nav-menu-item"><a class="nav-menu-link" href="#playground">Playground</a></li>
+          <li class="nav-menu-item"><a class="nav-menu-link" href="#how">How it works</a></li>
+          <li class="nav-menu-item"><a class="nav-menu-link" href="#api">API</a></li>
+          <li class="nav-menu-item"><a class="nav-menu-link" href="#install">Install</a></li>
+        </ul>
+      </nav>
+      <div class="mk-header-actions">
+        <label class="swap" data-variant="rotate" data-size="sm">
+          <input type="checkbox" id="theme-toggle" aria-label="Dark mode">
+          <span class="swap-on"><svg class="dq-icon" aria-hidden="true"><use href="#i-moon"/></svg></span>
+          <span class="swap-off"><svg class="dq-icon" aria-hidden="true"><use href="#i-sun"/></svg></span>
+        </label>
+        <a class="btn mk-header-wide" data-variant="ghost" data-size="icon" href="https://github.com/kyr0/defuss-query" aria-label="defuss-query on GitHub"><svg class="dq-icon" aria-hidden="true"><use href="#i-github"/></svg></a>
+        <a class="btn mk-header-wide" data-size="sm" href="#install">Install</a>
+        <button type="button" class="btn mk-header-menu" data-variant="ghost" data-size="icon" data-sheet-trigger="dq-menu" aria-haspopup="dialog" aria-label="Open menu"><svg class="dq-icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+      </div>
+    </div>
+    <dialog id="dq-menu" class="sheet" data-side="right" aria-labelledby="dq-menu-title">
+      <div class="sheet-content">
+        <div class="sheet-header">
+          <h2 class="sheet-title" id="dq-menu-title">defuss-query</h2>
+        </div>
+        <div class="sheet-body">
+          <p class="mk-header-sheet-label">This page</p>
+          <ul class="mk-header-sheet-nav">
+            <li><a href="#demo" data-sheet-close>Demo <small>A morphing task board with an inspector</small></a></li>
+            <li><a href="#playground" data-sheet-close>Playground</a></li>
+            <li><a href="#how" data-sheet-close>How it works</a></li>
+            <li><a href="#api" data-sheet-close>API</a></li>
+            <li><a href="#install" data-sheet-close>Install</a></li>
+          </ul>
+        </div>
+        <div class="sheet-footer mk-header-sheet-actions">
+          <a class="btn" data-variant="outline" href="https://github.com/kyr0/defuss-query"><svg class="dq-icon" aria-hidden="true"><use href="#i-github"/></svg>GitHub</a>
+        </div>
+      </div>
+    </dialog>
+  </header>
+
+  <main class="dq-main">
+
+  <section class="parallax" aria-label="Introduction" style="padding-block:clamp(4rem, 10vw, 7rem) 1rem;width:100%">
+    <div class="parallax-layer" data-depth="far" aria-hidden="true">
+      <div class="pattern-grid" style="width:100%;height:100%;--shape-ink:color-mix(in oklch, var(--foreground) 7%, transparent);--shape-pattern:32px;mask-image:radial-gradient(55% 60% at 50% 45%, #000, transparent 75%)"></div>
+    </div>
+    <div class="parallax-layer" data-depth="mid" aria-hidden="true" style="--parallax-speed:22%;mask-image:linear-gradient(#000 55%, transparent 92%)">
+      <div class="corner-blob" style="position:absolute;inset-block-start:10%;inset-inline-start:8%;width:min(22rem, 45%);aspect-ratio:1;background:color-mix(in oklch, var(--chart-2) 45%, transparent);filter:blur(60px);opacity:.55"></div>
+      <div class="corner-blob-3" style="position:absolute;inset-block-start:28%;inset-inline-end:6%;width:min(18rem, 40%);aspect-ratio:1;background:color-mix(in oklch, var(--chart-4) 40%, transparent);filter:blur(60px);opacity:.5"></div>
+    </div>
+    <div class="parallax-content">
+      <section class="mk-hero" style="width:100%">
+        <div class="mk-hero-copy">
+          <a class="mk-hero-pill" href="#numbers"><span class="badge" data-variant="default" data-size="sm">v<span data-stat="version">0.2.0</span></span><span><span data-stat="all.min.js.gzip" data-format="kb">4.2 kB</span> gzip · one peer: defuss-morph</span><svg class="dq-icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+          <h1 class="mk-hero-title">jQuery-shaped DOM code, <strong>morphed</strong> instead of rebuilt. An update that</h1>
+          <p class="dq-flip"><span class="text-rotate"><span>
+              <span class="dq-accent">keeps nodes by key</span>
+              <span class="dq-accent">keeps your listeners</span>
+              <span class="dq-accent">keeps what users typed</span>
+              <span class="dq-accent">patches attributes in place</span>
+              <span class="dq-accent">awaits its transition</span>
+          </span></span></p>
+          <p class="mk-hero-desc"><code>df$</code> selects real elements with native CSS selectors and returns them as a real Array. Content writes such as <code>html()</code>, <code>text()</code> and <code>empty()</code> go through the <strong>defuss-morph</strong> engine, which diffs the new content against the live DOM and patches it in place. Events and forms stay native: <code>addEventListener</code> and <code>FormData</code>.</p>
+          <div class="mk-hero-actions">
+            <a class="btn" data-size="lg" href="#demo">Try the live demo<svg class="dq-icon" aria-hidden="true"><use href="#i-arrow-down"/></svg></a>
+            <a class="btn" data-variant="outline" data-size="lg" href="#api">Read the API</a>
+          </div>
+          <p class="mk-hero-note">Built by <a href="https://www.linkedin.com/in/aronhomberg/" target="_blank" rel="noopener">Aron Homberg (kyr0)<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>. Open source (<a href="https://github.com/kyr0/defuss-query/blob/main/LICENSE" target="_blank" rel="noopener">MIT<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>)</p>
+        </div>
+      </section>
+      <div class="dq-hero-code">
+        <div class="mockup-code" data-chrome="mac" data-title="index.html" data-wrap data-lang="html">
+          <pre data-prefix="1"><code><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">type</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"module"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">src</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"https://cdn.jsdelivr.net/npm/defuss-morph@latest/dist/all.min.js"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;&lt;/</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;</span></code></pre>
+          <pre data-prefix="2"><code><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">type</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"module"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">src</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"https://cdn.jsdelivr.net/npm/defuss-query@latest/dist/all.min.js"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;&lt;/</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;</span></code></pre>
+          <pre data-prefix="3"><code><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">type</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"module"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;</span></code></pre>
+          <pre data-prefix="4"><code><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// html() runs defuss-morph, not innerHTML: the list is</span></code></pre>
+          <pre data-prefix="5"><code><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// patched in place, both &lt;li&gt; are kept and reordered</span></code></pre>
+          <pre data-prefix="6"><code><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  </span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#list"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">html</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">'&lt;li key="b"&gt;B&lt;/li&gt;&lt;li key="a"&gt;A&lt;/li&gt;'</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">);</span></code></pre>
+          <pre data-prefix="7"><code></code></pre>
+          <pre data-prefix="8"><code><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  </span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#list li"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)</span></code></pre>
+          <pre data-prefix="9"><code><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">    .</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">addClass</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"ready"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)</span></code></pre>
+          <pre data-prefix="10"><code><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">    .</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">on</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"click"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, (</span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">e</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">) </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">=&gt;</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> { </span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(e.currentTarget).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">text</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"Saved"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">); });</span></code></pre>
+          <pre data-prefix="11"><code><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;/</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;</span></code></pre>
+        </div>
+      </div>
+      <div class="dq-intro" id="intro">
+        <section class="dq-intro-item" aria-labelledby="intro-1">
+          <span class="dq-intro-icon" aria-hidden="true"><svg class="dq-icon"><use href="#i-target"/></svg></span>
+          <h3 id="intro-1">One callable <code>df$</code></h3>
+          <p>Call it to select: CSS selectors, markup, VNodes, elements or collections. Read it as a namespace: <code>df$.morph()</code> and every other morph export sit on the same function.</p>
+        </section>
+        <section class="dq-intro-item" aria-labelledby="intro-2">
+          <span class="dq-intro-icon" aria-hidden="true"><svg class="dq-icon"><use href="#i-layers"/></svg></span>
+          <h3 id="intro-2">Morph, not innerHTML</h3>
+          <p>Content writes are diffed against the live DOM. Keyed and id-matched nodes are <strong>moved, not recreated</strong>, so their listeners and typed values survive, and focus stays on an element that keeps its place.</p>
+        </section>
+        <section class="dq-intro-item" aria-labelledby="intro-3">
+          <span class="dq-intro-icon" aria-hidden="true"><svg class="dq-icon"><use href="#i-list"/></svg></span>
+          <h3 id="intro-3">Real Arrays, fixed membership</h3>
+          <p>A selection is an <code>Array</code> subclass: <code>map</code>, <code>some</code> and <code>for...of</code> just work. Its members are fixed when it is created; traversal returns a <strong>new</strong> selection, setters return the same one.</p>
+        </section>
+        <section class="dq-intro-item" aria-labelledby="intro-4">
+          <span class="dq-intro-icon" aria-hidden="true"><svg class="dq-icon"><use href="#i-zap"/></svg></span>
+          <h3 id="intro-4">Native events</h3>
+          <p><code>on()</code> is <code>addEventListener</code> on each target, so <code>stopPropagation()</code>, non-bubbling events and <code>currentTarget</code> behave as usual. When morph removes an element, its listeners go with it.</p>
+        </section>
+        <section class="dq-intro-item" aria-labelledby="intro-5">
+          <span class="dq-intro-icon" aria-hidden="true"><svg class="dq-icon"><use href="#i-form"/></svg></span>
+          <h3 id="intro-5">Native forms</h3>
+          <p><code>form()</code> returns the browser's own <code>FormData</code> with duplicate names, files and the submitter; <code>serialize()</code> URL-encodes its string entries. No hand-rolled form walker.</p>
+        </section>
+        <section class="dq-intro-item" aria-labelledby="intro-6">
+          <span class="dq-intro-icon" aria-hidden="true"><svg class="dq-icon"><use href="#i-feather"/></svg></span>
+          <h3 id="intro-6">Small and import-safe</h3>
+          <p>The CDN bundle is <strong data-stat="all.min.js.gzip" data-format="kb">4.2 kB</strong> gzipped, imports nothing and does not embed morph. The npm entry writes no global and reads no <code>document</code> on import.</p>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <section id="demo" class="container dq-section parallax-reveal" data-reveal="zoom" aria-labelledby="demo-title">
+    <header class="mk-section-header" data-align="center">
+      <div class="mk-section-header-copy">
+        <span class="mk-section-header-eyebrow">Live demo</span>
+        <h2 class="mk-section-header-title" id="demo-title">A task board that re-renders on every change</h2>
+        <p class="mk-section-header-desc">Every change renders the whole list again as VNodes with <code>df$("#tasks").morph(rows)</code>. Shuffle, sort or reverse it: the number on each row names its DOM element and does not change, because morph moves the keyed rows instead of rebuilding them. The inspector counts the elements each render kept, created and removed. The frame runs the bundles this site serves, with shadcn styles and no other script.</p>
+      </div>
+    </header>
+    <div class="dq-window">
+      <div class="dq-frame">
+        <figure class="iframe" data-fit="container" data-variant="bare" id="demo-frame">
+          <iframe class="iframe-frame" src="demo/" title="Task board demo running on defuss-query"></iframe>
+        </figure>
+      </div>
+      <div class="dq-window-foot">
+        <p class="dq-window-note"><svg class="dq-icon" aria-hidden="true"><use href="#i-eye"/></svg>Try a reorder with the fade transition: <code>morph()</code> returns a Promise when you pass <code>transition</code>.</p>
+        <div class="dq-window-actions">
+          <button type="button" class="btn" data-variant="ghost" data-size="sm" id="demo-restart"><svg class="dq-icon" aria-hidden="true"><use href="#i-reload"/></svg>Restart</button>
+          <a class="btn" data-variant="outline" data-size="sm" href="demo/" target="_blank" rel="noopener"><svg class="dq-icon" aria-hidden="true"><use href="#i-maximize"/></svg>Open full screen<span class="sr-only"> (opens in a new tab)</span></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="playground" class="container dq-section parallax-reveal" aria-labelledby="playground-title">
+    <header class="mk-section-header">
+      <div class="mk-section-header-copy">
+        <span class="mk-section-header-eyebrow">Playground</span>
+        <h2 class="mk-section-header-title" id="playground-title">Run a chain, then see what it kept</h2>
+        <p class="mk-section-header-desc">Each snippet runs on this page's <code>df$</code> against a fresh copy of the sandbox below. The report lists what the snippet returned and which sandbox elements survived, were created or were removed. Compare the morph reorder with the <code>innerHTML</code> one.</p>
+      </div>
+    </header>
+    <div class="dq-lab card">
+      <div class="dq-lab-pick">
+        <p class="label" id="preset-label">Snippets</p>
+        <div class="dq-presets" id="presets" role="group" aria-labelledby="preset-label"></div>
+      </div>
+      <div class="dq-lab-run">
+        <figure class="mk-code-block dq-lab-code" data-variant="file">
+          <div class="mk-code-block-head"><span class="mk-code-block-file"><svg class="dq-icon" aria-hidden="true"><use href="#i-file"/></svg>snippet.js</span></div>
+          <pre><code id="preset-code"><span>Pick a snippet.</span></code></pre>
+        </figure>
+        <div class="dq-lab-actions">
+          <button type="button" class="btn" id="preset-run"><svg class="dq-icon" aria-hidden="true"><use href="#i-play"/></svg>Run again</button>
+          <button type="button" class="btn" data-variant="outline" id="sandbox-reset"><svg class="dq-icon" aria-hidden="true"><use href="#i-reload"/></svg>Reset sandbox</button>
+        </div>
+        <div class="dq-sandbox" id="sandbox" aria-label="Sandbox"></div>
+        <dl class="dq-report" id="report" aria-live="polite"></dl>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="container dq-section parallax-reveal" aria-labelledby="how-title">
+    <header class="mk-section-header">
+      <div class="mk-section-header-copy">
+        <span class="mk-section-header-eyebrow">How it works</span>
+        <h2 class="mk-section-header-title" id="how-title">A facade over one engine</h2>
+        <p class="mk-section-header-desc">defuss-query adds no second reconciler and no second event system. It selects with the platform, writes content through defuss-morph and does the exact inserts and removals morph has no primitive for. The design rationale is in <a href="https://github.com/kyr0/defuss-query/blob/main/ARCH.md" target="_blank" rel="noopener">ARCH.md<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>.</p>
+      </div>
+    </header>
+    <div class="dq-faces">
+      <article class="card dq-face">
+        <div class="card-header"><h3 class="card-title">Call <code>df$</code> to select</h3><p class="card-description">Every call returns a <code>DfQuery</code>: an Array subclass, deduplicated, in encounter order.</p></div>
+        <div class="card-content">
+<pre data-lang="js"><code><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">".card"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)                 </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// querySelectorAll</span></span><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"button"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, dialog)        </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// with a context root</span></span><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"&lt;li&gt;New&lt;/li&gt;"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)         </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// parse markup into nodes</span></span><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">({ type: </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"b"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, children: [</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"x"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">] }) </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// render a VNode</span></span><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(element) </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">/</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(nodeList) </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// wrap targets</span></span><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(() </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">=&gt;</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">start</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">())           </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// run when the DOM is ready</span></span></code></pre>
+        </div>
+      </article>
+      <article class="card dq-face">
+        <div class="card-header"><h3 class="card-title">Read <code>df$</code> as a namespace</h3><p class="card-description">The morph API is copied onto the function, plus three reserved slots.</p></div>
+        <div class="card-content">
+<pre data-lang="js"><code><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">df$.</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">morph</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(el, </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"&lt;p&gt;Hi&lt;/p&gt;"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)   </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// the engine itself</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">df$.</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">renderMarkup</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(vnode)       </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// any other morph export</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">df$.fn                        </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// DfQuery.prototype</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">df$.dom                       </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// the structural adapter</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">df$.queryVersion              </span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// the package version string</span></span></code></pre>
+        </div>
+      </article>
+    </div>
+    <div class="dq-how-grid">
+      <div>
+        <h3 class="dq-subtitle">The write path of <code>html()</code></h3>
+        <ol class="mk-process-steps">
+          <li class="mk-process-step">
+            <span class="mk-process-step-number" aria-hidden="true">01</span>
+            <div class="mk-process-step-body">
+              <h4 class="mk-process-step-title">Parse</h4>
+              <p class="mk-process-step-desc">A markup string becomes VNodes through morph's parser; standalone <code>&lt;tr&gt;</code>, <code>&lt;td&gt;</code> or <code>&lt;option&gt;</code> get their table or select context. VNodes and DOM nodes are snapshotted as VNodes.</p>
+            </div>
+          </li>
+          <li class="mk-process-step">
+            <span class="mk-process-step-number" aria-hidden="true">02</span>
+            <div class="mk-process-step-body">
+              <h4 class="mk-process-step-title">Diff</h4>
+              <p class="mk-process-step-desc"><code>morph()</code> compares the VNodes with each element's live children. Nodes matched by <code>key</code> or <code>id</code> are moved; attributes are patched in place.</p>
+            </div>
+          </li>
+          <li class="mk-process-step" aria-current="step">
+            <span class="mk-process-step-number" aria-hidden="true">03</span>
+            <div class="mk-process-step-body">
+              <h4 class="mk-process-step-title">Clean up</h4>
+              <p class="mk-process-step-desc">Elements morph removes run its cleanup, and a hook defuss-query registers removes their <code>on()</code> listeners. Matched elements keep theirs.</p>
+            </div>
+          </li>
+          <li class="mk-process-step">
+            <span class="mk-process-step-number" aria-hidden="true">04</span>
+            <div class="mk-process-step-body">
+              <h4 class="mk-process-step-title">Return</h4>
+              <p class="mk-process-step-desc">Without <code>transition</code> the call is synchronous and returns the selection for chaining. With one it returns a Promise of the selection, after every element's transition settled.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+      <div>
+        <h3 class="dq-subtitle">Three ways to load it</h3>
+        <div class="table-container">
+          <table class="table dq-table">
+            <thead><tr class="table-row"><th class="table-head">Entry</th><th class="table-head">For</th><th class="table-head">Contract</th></tr></thead>
+            <tbody>
+              <tr class="table-row"><td class="table-cell"><code>dist/all.min.js</code></td><td class="table-cell">CDN, module script</td><td class="table-cell">Upgrades the morph global <code>window.df$</code> into the callable. No imports, morph not embedded.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>dist/global.min.js</code></td><td class="table-cell">Classic script</td><td class="table-cell">The same installation as a classic script, for loaders that need deterministic execution.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>defuss-query</code></td><td class="table-cell">npm, bundlers, servers</td><td class="table-cell">Imports the <code>defuss-morph</code> peer, writes no global, reads no <code>document</code> on import. ESM and CommonJS.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>defuss-query/core</code></td><td class="table-cell">Your own morph</td><td class="table-cell"><code>createDf$(morph)</code> builds a <code>df$</code> around the morph instance you pass.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="dq-lead" style="margin-top:1rem">Load morph before query. The other order works with morph 0.1.1 or later: selectors work at once, content writes once morph has loaded.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="api" class="container dq-section parallax-reveal" aria-labelledby="api-title">
+    <header class="mk-section-header">
+      <div class="mk-section-header-copy">
+        <span class="mk-section-header-eyebrow">API</span>
+        <h2 class="mk-section-header-title" id="api-title">The whole surface on one page</h2>
+        <p class="mk-section-header-desc">The declarations ship in the package (<code>dist/index.d.ts</code>); the agent-facing reference is <a href="https://github.com/kyr0/defuss-query/blob/main/SKILL.md" target="_blank" rel="noopener">SKILL.md<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>, which ships in the npm package too.</p>
+      </div>
+    </header>
+
+    <div class="tabs dq-api">
+      <div class="tab-list" role="tablist" aria-label="API reference" data-size="lg">
+        <button class="tab-trigger" role="tab" aria-selected="true" aria-controls="api-select" id="tab-select">Select</button>
+        <button class="tab-trigger" role="tab" aria-selected="false" aria-controls="api-state" id="tab-state" tabindex="-1">Read and write</button>
+        <button class="tab-trigger" role="tab" aria-selected="false" aria-controls="api-content" id="tab-content" tabindex="-1">Content</button>
+        <button class="tab-trigger" role="tab" aria-selected="false" aria-controls="api-events" id="tab-events" tabindex="-1">Events and forms</button>
+        <button class="tab-trigger" role="tab" aria-selected="false" aria-controls="api-ns" id="tab-ns" tabindex="-1">Namespace</button>
+      </div>
+
+      <div class="tab-content" role="tabpanel" id="api-select" aria-labelledby="tab-select" tabindex="0">
+        <p class="dq-lead">A string starting with <code>&lt;</code> (after whitespace) is markup; any other string is a selector. Collections must contain EventTargets; anything else throws a <code>TypeError</code>.</p>
+        <div class="table-container">
+          <table class="table dq-table">
+            <thead><tr class="table-row"><th class="table-head">Call</th><th class="table-head">Returns</th><th class="table-head">Semantics</th></tr></thead>
+            <tbody>
+              <tr class="table-row"><td class="table-cell"><code>df$(selector, context?)</code></td><td class="table-cell"><code>DfQuery&lt;Element&gt;</code></td><td class="table-cell"><code>querySelectorAll</code> on <code>context</code> (Document, Element or DocumentFragment), default the document. Tag names give precise types: <code>df$("button")</code> is <code>DfQuery&lt;HTMLButtonElement&gt;</code>.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>df$("&lt;markup&gt;")</code>, <code>df$(vnode)</code></td><td class="table-cell"><code>DfQuery&lt;Node&gt;</code></td><td class="table-cell">New detached nodes; several roots allowed.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>df$(target | targets)</code></td><td class="table-cell"><code>DfQuery&lt;T&gt;</code></td><td class="table-cell">Wraps an EventTarget (element, document, window) or an iterable or array-like of them.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>df$(fn)</code></td><td class="table-cell"><code>DfQuery&lt;Document&gt;</code></td><td class="table-cell">Runs <code>fn(df$)</code> on DOMContentLoaded, or in a microtask when the document is already parsed.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>df$()</code>, <code>df$(null)</code></td><td class="table-cell"><code>DfQuery</code></td><td class="table-cell">An empty selection.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>[i]</code>, <code>.length</code>, <code>.get(i?)</code>, <code>.toArray()</code></td><td class="table-cell">item or array</td><td class="table-cell">Array access; <code>get()</code> and <code>toArray()</code> return copies, <code>get(-1)</code> counts from the end.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.eq(i)</code>, <code>.first()</code>, <code>.last()</code></td><td class="table-cell">new selection</td><td class="table-cell">One item; negative indices count from the end.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.each(fn)</code></td><td class="table-cell"><code>this</code></td><td class="table-cell">jQuery order <code>(index, element)</code> with <code>this</code> bound to the element; returning <code>false</code> stops.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.find(css)</code>, <code>.filter(css | fn)</code>, <code>.is(css)</code></td><td class="table-cell">selection, boolean</td><td class="table-cell">Descendants, matching subset, any match. <code>.find(fn)</code> keeps the native Array behavior.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.parent()</code>, <code>.children(css?)</code>, <code>.closest(css)</code>, <code>.next()</code>, <code>.prev()</code></td><td class="table-cell">new selection</td><td class="table-cell">Element traversal, deduplicated in encounter order.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.map()</code>, <code>.slice()</code>, <code>.flat()</code></td><td class="table-cell">plain <code>Array</code></td><td class="table-cell">Species-based Array methods return ordinary arrays.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-content" role="tabpanel" id="api-state" aria-labelledby="tab-state" tabindex="0" hidden>
+        <p class="dq-lead">Getters read the first element; setters write every element and return the selection. Non-element targets are skipped where a method needs an element.</p>
+        <div class="table-container">
+          <table class="table dq-table">
+            <thead><tr class="table-row"><th class="table-head">Method</th><th class="table-head">Semantics</th></tr></thead>
+            <tbody>
+              <tr class="table-row"><td class="table-cell"><code>.attr(name, value?)</code></td><td class="table-cell">A missing attribute reads <code>null</code>, an empty selection <code>undefined</code>. Setting <code>null</code> removes it.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.prop(name, value?)</code></td><td class="table-cell">Native JS properties. <code>innerHTML</code>, <code>outerHTML</code>, <code>textContent</code> and <code>innerText</code> writes throw: use the content methods.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.data(name, value?)</code></td><td class="table-cell"><code>dataset</code> with camelCase keys; values are strings, <code>null</code> deletes. No cache, no JSON coercion.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.css(name | map, value?)</code></td><td class="table-cell">Getters read the computed style, setters write inline style. camelCase and custom properties work; no implicit <code>px</code>.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.addClass()</code>, <code>.removeClass()</code>, <code>.toggleClass(names, force?)</code>, <code>.hasClass()</code></td><td class="table-cell">Whitespace strings or string arrays. <code>removeClass()</code> without arguments clears the attribute.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.val(value?)</code></td><td class="table-cell">Control values; a multiple select reads and writes string arrays, an array on checkboxes and radios sets <code>checked</code> by value. Dispatches no <code>input</code> or <code>change</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-content" role="tabpanel" id="api-content" aria-labelledby="tab-content" tabindex="0" hidden>
+        <p class="dq-lead">Content methods accept markup strings, VNodes, nodes, NodeLists and fragments. With several targets, nodes are cloned for all but the last target, which receives the originals.</p>
+        <div class="table-container">
+          <table class="table dq-table">
+            <thead><tr class="table-row"><th class="table-head">Method</th><th class="table-head">Returns</th><th class="table-head">Semantics</th></tr></thead>
+            <tbody>
+              <tr class="table-row"><td class="table-cell"><code>.morph(content, options?)</code></td><td class="table-cell"><code>this</code> or <code>Promise&lt;this&gt;</code></td><td class="table-cell">Morphs the content into every element. Passing <code>transition</code> makes it async, even <code>{ type: "none" }</code>.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.html(content?, options?)</code></td><td class="table-cell">string or as <code>morph()</code></td><td class="table-cell">Without arguments: the first element's <code>innerHTML</code> (its open shadow root's for normal elements). With content: <code>morph()</code>.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.text(value?)</code></td><td class="table-cell">string or <code>this</code></td><td class="table-cell">Reads the concatenated text. Writes literal text, never parsed as HTML; Text and CDATA nodes keep their identity.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.empty()</code></td><td class="table-cell"><code>this</code></td><td class="table-cell">Morphs an empty list into every element.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.append()</code>, <code>.prepend()</code>, <code>.before()</code>, <code>.after()</code></td><td class="table-cell"><code>this</code></td><td class="table-cell">Exact inserts with <code>insertBefore</code>. A batch that would insert an ancestor into its descendant throws before any write.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.replaceWith(content)</code></td><td class="table-cell"><code>this</code></td><td class="table-cell">Inserts the content before each target, then removes the target.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.appendTo(target)</code></td><td class="table-cell">inserted nodes</td><td class="table-cell">Appends this selection to a selector, root or collection and selects the inserted nodes.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.remove()</code></td><td class="table-cell"><code>this</code></td><td class="table-cell">Detaches every node after running morph's cleanup, which also removes <code>on()</code> listeners.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-content" role="tabpanel" id="api-events" aria-labelledby="tab-events" tabindex="0" hidden>
+        <div class="table-container">
+          <table class="table dq-table">
+            <thead><tr class="table-row"><th class="table-head">Method</th><th class="table-head">Semantics</th></tr></thead>
+            <tbody>
+              <tr class="table-row"><td class="table-cell"><code>.on(types, handler, capture?)</code></td><td class="table-cell"><code>addEventListener</code> on each target; space-separated types; <code>this</code> is the target. Only <code>capture</code> is accepted (<code>true</code> or <code>{ capture: true }</code>); other option keys throw. For elements it needs morph loaded.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.off(types?, handler?)</code></td><td class="table-cell">Removes listeners that <code>on()</code> added: by handler, by type, or all. Native and VNode listeners stay.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.trigger(type, detail?)</code></td><td class="table-cell">Dispatches a <code>CustomEvent</code> built in the target's realm: <code>bubbles</code> and <code>cancelable</code> true, <code>composed</code> false. Not trusted input, no default actions.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.form(submitter?)</code></td><td class="table-cell">The native <code>FormData</code> of a selection that is exactly one form, built with the form's own realm; otherwise throws. A submitter adds its entry.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>.serialize(submitter?)</code></td><td class="table-cell">URL-encoded string entries of <code>form()</code>; file entries are skipped.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-content" role="tabpanel" id="api-ns" aria-labelledby="tab-ns" tabindex="0" hidden>
+        <div class="table-container">
+          <table class="table dq-table">
+            <thead><tr class="table-row"><th class="table-head">Name</th><th class="table-head">Semantics</th></tr></thead>
+            <tbody>
+              <tr class="table-row"><td class="table-cell"><code>df$.&lt;morph export&gt;</code></td><td class="table-cell">Every own export of the morph API, with its identity: <code>df$.morph</code>, <code>df$.renderMarkup</code>, <code>df$.queueCallback</code> and the rest.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>df$.fn</code></td><td class="table-cell"><code>DfQuery.prototype</code>, for adding your own chain methods.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>df$.dom</code></td><td class="table-cell">The structural adapter: <code>create</code>, <code>insert</code>, <code>replace</code>, <code>remove</code>, <code>morph</code>, <code>text</code>.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>df$.queryVersion</code></td><td class="table-cell">The package version string.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>createDf$(morphApi)</code></td><td class="table-cell">From <code>defuss-query/core</code>: a new <code>df$</code> around the given morph API.</td></tr>
+              <tr class="table-row"><td class="table-cell"><code>installGlobal(target?)</code></td><td class="table-cell">The CDN installation: reuses an installed query <code>df$</code>, upgrades the morph object, throws on an unrelated <code>df$</code> function.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="numbers" class="container dq-section parallax-reveal" aria-labelledby="numbers-title">
+    <section class="mk-stats" style="width:100%">
+      <div class="mk-stats-layout">
+        <div class="mk-stats-copy">
+          <div class="mk-stats-head">
+            <h2 class="mk-stats-title" id="numbers-title">Small, and measured</h2>
+            <p class="mk-stats-desc">Sizes are <code>make metrics</code> output for the <span data-stat="version">0.2.0</span> build, which this page and the demo load from <code>assets/</code>. The release gate (<code>scripts/verify.ts</code>) fails when a browser bundle gzips above 4,608 bytes, imports a module or embeds the morph engine.</p>
+          </div>
+          <div class="mk-stats-grid">
+            <div class="mk-stat"><span class="mk-stat-value"><span data-stat="all.min.js.gzip" data-format="bytes">4,203</span> B <span class="badge" data-variant="secondary" data-size="sm">gzip</span></span><span class="mk-stat-label"><span data-stat="all.min.js.brotli" data-format="bytes">3,714</span> B Brotli, <span data-stat="all.min.js.bytes" data-format="bytes">11,342</span> B raw: <code>all.min.js</code></span></div>
+            <div class="mk-stat"><span class="mk-stat-value">1</span><span class="mk-stat-label">runtime peer dependency, <code>defuss-morph</code>; the CDN bundle does not embed it</span></div>
+            <div class="mk-stat"><span class="mk-stat-value">0</span><span class="mk-stat-label">imports in the browser bundles, checked by the release gate</span></div>
+            <div class="mk-stat"><span class="mk-stat-value">4</span><span class="mk-stat-label">runs of the DOM suite in real Chromium: three shipped bundles and the source</span></div>
+          </div>
+        </div>
+        <figure class="mk-stats-media dq-metrics">
+          <div class="mockup-code" data-chrome="mac" data-title="defuss-query">
+            <pre data-prefix="$" data-lang="sh"><code><span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">make</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">metrics</span></span></code></pre>
+            <pre data-prefix=""><code>all.js <span data-stat="all.js.bytes">30219</span> bytes <span data-stat="all.js.gzip">8638</span> gzip <span data-stat="all.js.brotli">7453</span> brotli</code></pre>
+            <pre data-prefix=""><code>all.min.js <span data-stat="all.min.js.bytes">11342</span> bytes <span data-stat="all.min.js.gzip">4203</span> gzip <span data-stat="all.min.js.brotli">3714</span> brotli</code></pre>
+            <pre data-prefix=""><code>global.min.js <span data-stat="global.min.js.bytes">11078</span> bytes <span data-stat="global.min.js.gzip">4112</span> gzip <span data-stat="global.min.js.brotli">3626</span> brotli</code></pre>
+          </div>
+          <figcaption class="dq-figcaption">Measured with <code>zlib</code> gzip level 9 and Brotli defaults; <a href="assets/stats.json">stats.json</a> holds the same numbers.</figcaption>
+        </figure>
+      </div>
+    </section>
+  </section>
+
+  <section id="install" class="container dq-section parallax-reveal" aria-labelledby="install-title">
+    <div class="corner-leaf pattern-dots dq-use">
+      <header class="mk-section-header">
+        <div class="mk-section-header-copy">
+          <span class="mk-section-header-eyebrow">Install</span>
+          <h2 class="mk-section-header-title" id="install-title">Add it to a page or a project</h2>
+          <p class="mk-section-header-desc">Two script tags for a page, or the npm package with its <code>defuss-morph</code> peer for a build. Or hand one prompt to your coding agent.</p>
+        </div>
+      </header>
+      <div class="dq-ways">
+        <div class="dq-way">
+          <h3 class="dq-way-title"><svg class="dq-icon" aria-hidden="true"><use href="#i-file"/></svg>In a page</h3>
+          <p class="dq-way-desc">Load morph first, then query. Module scripts run in document order, so the application script after them sees <code>df$</code>.</p>
+          <figure class="mk-code-block">
+            <div class="mk-code-block-head">
+              <div class="mk-code-block-tabs" role="radiogroup" aria-label="Loading">
+                <label><input type="radio" name="cb-page" value="global" checked>global df$</label><label><input type="radio" name="cb-page" value="esm">ESM import</label>
+              </div>
+              <button class="mk-code-block-copy" type="button" aria-label="Copy code"><svg class="dq-icon" aria-hidden="true"><use href="#i-copy"/></svg></button>
+            </div>
+            <pre data-tab="global" data-lang="html"><code><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">type</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"module"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">src</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"https://cdn.jsdelivr.net/npm/defuss-morph@latest/dist/all.min.js"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;&lt;/</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">type</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"module"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">src</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"https://cdn.jsdelivr.net/npm/defuss-query@latest/dist/all.min.js"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;&lt;/</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">type</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"module"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  </span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#app"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">html</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"&lt;p&gt;Hello&lt;/p&gt;"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">);</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;/</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;</span></span></code></pre>
+            <pre data-tab="esm" data-lang="html"><code><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">type</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">=</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"module"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">await</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">import</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"https://cdn.jsdelivr.net/npm/defuss-morph@latest/dist/all.min.js"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">);</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">const</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> { </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> } </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">=</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">await</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">import</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"https://cdn.jsdelivr.net/npm/defuss-query@latest/dist/all.min.js"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">);</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  </span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#app"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">html</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"&lt;p&gt;Hello&lt;/p&gt;"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">);</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;/</span><span style="--shiki-light:#024C1A;--shiki-dark:#7EE787">script</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt;</span></span></code></pre>
+            <span class="mk-code-block-status" role="status"></span>
+          </figure>
+          <div class="dq-download">
+            <a class="btn" data-variant="outline" data-size="sm" href="assets/defuss-query.min.js" download="defuss-query.min.js"><svg class="dq-icon" aria-hidden="true"><use href="#i-download"/></svg>defuss-query.min.js</a>
+            <a class="btn" data-variant="outline" data-size="sm" href="assets/defuss-morph.min.js" download="defuss-morph.min.js"><svg class="dq-icon" aria-hidden="true"><use href="#i-download"/></svg>defuss-morph.min.js</a>
+          </div>
+        </div>
+        <div class="separator dq-sep-vertical" data-orientation="vertical" role="separator"></div>
+        <hr class="separator dq-sep-horizontal">
+        <div class="dq-way">
+          <h3 class="dq-way-title"><svg class="dq-icon" aria-hidden="true"><use href="#i-package"/></svg>In a project</h3>
+          <p class="dq-way-desc">The npm entry imports the <code>defuss-morph</code> peer (<code>^0.2.0</code>) and has no side effects on import, so server-side imports are safe.</p>
+          <figure class="mk-code-block">
+            <div class="mk-code-block-head">
+              <div class="mk-code-block-tabs" role="radiogroup" aria-label="Step">
+                <label><input type="radio" name="cb-pkg" value="pkg" checked>install</label><label><input type="radio" name="cb-pkg" value="ts">use</label>
+              </div>
+              <button class="mk-code-block-copy" type="button" aria-label="Copy code"><svg class="dq-icon" aria-hidden="true"><use href="#i-copy"/></svg></button>
+            </div>
+            <pre data-tab="pkg" data-lang="sh"><code><span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">bun</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">add</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">defuss-query</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">defuss-morph</span></span></code></pre>
+            <pre data-tab="ts" data-lang="ts"><code><span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">import</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> df$, { </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">type</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> DfQuery } </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">from</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"defuss-query"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">;</span></span><span></span><span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">const</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">buttons</span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">:</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">DfQuery</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&lt;</span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">HTMLButtonElement</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">&gt; </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">=</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"button"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">);</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">buttons.</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">prop</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"disabled"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">false</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">on</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"click"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">function</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> (</span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">event</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">) {</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  console.</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">log</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">this</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">.disabled, event.clientX);</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">});</span></span></code></pre>
+            <span class="mk-code-block-status" role="status"></span>
+          </figure>
+        </div>
+      </div>
+
+      <hr class="separator dq-sep-wide">
+      <div class="dq-way">
+        <h3 class="dq-way-title"><svg class="dq-icon" aria-hidden="true"><use href="#i-bot"/></svg>With a coding agent</h3>
+        <p class="dq-way-desc">Paste this prompt into your coding agent. The package ships <code>SKILL.md</code>, the API reference written for agents.</p>
+        <div class="dq-prompt">
+          <div class="mockup-code" data-chrome="mac" data-title="coding agent · ~/your-app" data-wrap id="agent-prompt">
+            <pre data-prefix=">"><code>Use defuss-query for the DOM code in this app: https://github.com/kyr0/defuss-query</code></pre>
+            <pre data-prefix=""><code>Install defuss-query and defuss-morph, then read node_modules/defuss-query/SKILL.md and follow it.</code></pre>
+            <pre data-prefix=""><code>Write content with html(), text() or morph() instead of innerHTML, render lists as keyed VNodes, and put user input only into text() or VNode text.</code></pre>
+            <pre data-prefix=""><code>Use on() and off() for listeners and form() for form data.</code></pre>
+            <pre data-prefix="" data-tone="muted" data-cursor><code>send</code></pre>
+          </div>
+          <button type="button" class="btn dq-prompt-copy" data-variant="secondary" data-size="sm" id="copy-prompt"><svg class="dq-icon" aria-hidden="true"><use href="#i-copy"/></svg><span>Copy prompt</span></button>
+          <span class="sr-only" role="status" id="copy-prompt-status"></span>
+        </div>
+        <p class="dq-way-desc">Give your agent the defuss-vae skills too: it then plans, tests and reviews against a verifier instead of declaring itself done. In Claude Code, the plugin adds the commit and Stop-hook gate. Needs <code>python3</code> 3.9 or later, <code>git</code> and <code>make</code>.</p>
+        <figure class="mk-code-block" id="vae-install">
+          <div class="mk-code-block-head">
+            <div class="mk-code-block-tabs" role="radiogroup" aria-label="Agent">
+              <label><input type="radio" name="cb-vae" value="skills" checked>Any agent</label><label><input type="radio" name="cb-vae" value="claude">Claude Code plugin</label>
+            </div>
+            <button class="mk-code-block-copy" type="button" aria-label="Copy code"><svg class="dq-icon" aria-hidden="true"><use href="#i-copy"/></svg></button>
+          </div>
+          <pre data-tab="skills" data-lang="sh"><code><span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">npx</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">skills</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">add</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">kyr0/defuss-vae</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">--skill</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">'*'</span></span></code></pre>
+          <pre data-tab="claude" data-lang="sh"><code><span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">claude</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">plugin</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">marketplace</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">add</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">kyr0/defuss-vae</span></span><span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">claude</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">plugin</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">install</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">defuss-vae@defuss-vae</span></span></code></pre>
+          <span class="mk-code-block-status" role="status"></span>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <div class="container dq-section parallax-reveal" data-reveal="zoom">
+    <div class="corner-leaf dq-consult">
+      <section class="mk-cta" data-variant="split" aria-labelledby="vae-title">
+        <div class="mk-cta-inner">
+          <div class="mk-cta-copy">
+            <div class="dq-cta-head">
+              <div class="aura aura-glow aura-gold dq-cta-portrait" style="--shape-round:1.25rem"><img class="shape-squircle" src="assets/aron-homberg.jpg" width="400" height="400" alt="Portrait of Aron Homberg" loading="lazy"></div>
+              <h2 class="mk-cta-title" id="vae-title">Tired of inconsistent agent results and long reviews?</h2>
+            </div>
+            <p class="mk-cta-desc">Build more consistent agents with <a href="https://github.com/kyr0/defuss-vae" target="_blank" rel="noopener"><strong>defuss-vae</strong><svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>, Aron's verification-first skill set: plans, tests and reviews run against a verifier.</p>
+          </div>
+          <div class="mk-cta-actions dq-consult-actions">
+            <a class="btn" data-size="lg" href="https://www.linkedin.com/in/aronhomberg/" target="_blank" rel="noopener"><svg class="dq-icon dq-icon-fill" aria-hidden="true"><use href="#i-linkedin"/></svg>Talk to Aron on LinkedIn<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>
+            <p class="mk-cta-note dq-consult-note">For a remote training or mentoring session for you or your engineering team.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="container dq-section parallax-reveal" data-reveal="zoom">
+    <section class="mk-cta" data-variant="dark" aria-labelledby="cta-title">
+      <div class="mk-cta-inner">
+        <div class="mk-cta-copy">
+          <h2 class="mk-cta-title" id="cta-title">Reintroduce jQuery simplicity, drop the inefficiencies</h2>
+          <p class="mk-cta-desc">Native selectors, real Arrays, native events and forms, and content writes that patch the DOM instead of replacing it.</p>
+        </div>
+        <div class="mk-cta-actions">
+          <a class="btn" data-size="lg" href="https://github.com/kyr0/defuss-query" target="_blank" rel="noopener">View on GitHub<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>
+          <a class="btn" data-variant="outline" data-size="lg" href="#playground">Open the playground</a>
+        </div>
+        <p class="mk-cta-note">MIT licensed · <span data-stat="version">0.2.0</span> · one peer dependency</p>
+      </div>
+    </section>
+  </div>
+
+  </main>
+
+  <footer class="mk-footer" style="width:100%">
+    <div class="mk-footer-inner">
+      <nav class="mk-footer-nav dq-footer-nav" aria-label="Footer">
+        <div class="mk-footer-col">
+          <h3 class="mk-footer-heading">Project</h3>
+          <ul class="mk-footer-list">
+            <li><a href="https://github.com/kyr0/defuss-query" target="_blank" rel="noopener">Source code<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://github.com/kyr0/defuss-query/blob/main/README.md" target="_blank" rel="noopener">README<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://github.com/kyr0/defuss-query/blob/main/ARCH.md" target="_blank" rel="noopener">Architecture<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://www.npmjs.com/package/defuss-query" target="_blank" rel="noopener">npm package<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+          </ul>
+        </div>
+        <div class="mk-footer-col">
+          <h3 class="mk-footer-heading">This page</h3>
+          <ul class="mk-footer-list">
+            <li><a href="#demo">Live demo</a></li>
+            <li><a href="#playground">Playground</a></li>
+            <li><a href="#how">How it works</a></li>
+            <li><a href="#api">API</a></li>
+          </ul>
+        </div>
+        <div class="mk-footer-col">
+          <h3 class="mk-footer-heading">Works with</h3>
+          <ul class="mk-footer-list">
+            <li><a href="https://www.npmjs.com/package/defuss-morph" target="_blank" rel="noopener">defuss-morph<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://shadcn.defuss.org/" target="_blank" rel="noopener">defuss-shadcn<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a href="https://dom-router.defuss.org/" target="_blank" rel="noopener">defuss-dom-router<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a></li>
+          </ul>
+        </div>
+        <div class="mk-footer-col">
+          <h3 class="mk-footer-heading">Professional consulting services</h3>
+          <aside class="corner-leaf dq-ad" aria-label="Consulting by Aron Homberg">
+            <div class="dq-ad-head">
+              <div class="aura aura-glow aura-gold dq-ad-portrait" style="--shape-round:1.5rem"><img class="shape-squircle" src="assets/aron-homberg.jpg" width="400" height="400" alt="Portrait of Aron Homberg" loading="lazy"></div>
+              <div>
+                <p class="dq-ad-name">Aron Homberg</p>
+                <p class="dq-ad-role">Freelance computer science expert · independent AI researcher</p>
+              </div>
+            </div>
+            <a class="btn" data-size="sm" href="https://www.linkedin.com/in/aronhomberg/" target="_blank" rel="noopener"><svg class="dq-icon dq-icon-fill" aria-hidden="true"><use href="#i-linkedin"/></svg>Connect on LinkedIn<svg class="dq-icon dq-ext" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only"> (opens in a new tab)</span></a>
+          </aside>
+        </div>
+      </nav>
+      <hr class="separator mk-footer-rule">
+      <div class="mk-footer-bottom">
+        <a href="#top" class="mk-footer-brand" aria-label="Back to the top"><svg class="dq-icon" aria-hidden="true"><use href="#i-logo"/></svg><span class="mk-footer-brand-name">defuss-query</span></a>
+        <div class="mk-footer-meta">
+          <p class="mk-footer-copy">MIT licensed. Styled with <a href="https://shadcn.defuss.org/" target="_blank" rel="noopener">defuss-shadcn</a>; behavior by the defuss-query bundle it documents.</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<template id="sandbox-fixture">
+  <ul id="dq-list"><li key="a" id="dq-a">Alpha</li><li key="b" id="dq-b">Beta</li><li key="c" id="dq-c">Gamma</li></ul>
+  <form id="dq-form"><input class="input" data-size="sm" name="note" placeholder="note" aria-label="Note"><label><input class="checkbox" type="checkbox" name="tag" value="dom" checked> dom</label><label><input class="checkbox" type="checkbox" name="tag" value="morph" checked> morph</label></form>
+  <div class="dq-toolbar"></div>
+</template>
+
+<!-- snippets:start: the playground code, generated by make docs (scripts/highlight.ts) from PRESETS in assets/site.js -->
+<template data-snippet="chain"><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#dq-list li"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">addClass</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"hot"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">attr</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"data-seen"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"yes"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)</span></span></template>
+<template data-snippet="morph-reorder"><span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// REORDERED: the sandbox markup with Delta added and the list reversed.</span></span><span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// Before the run, the note input is focused and holds text typed into it.</span></span><span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// The markup sets no value, so morph keeps the typed one.</span></span><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#sandbox"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">html</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">REORDERED</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)</span></span></template>
+<template data-snippet="inner-reorder"><span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// REORDERED: the sandbox markup with Delta added and the list reversed.</span></span><span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// Before the run, the note input is focused and holds text typed into it.</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">document.</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">getElementById</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"sandbox"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).innerHTML </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">=</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">REORDERED</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">;</span></span></template>
+<template data-snippet="text"><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#dq-list li"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">first</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">().</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">text</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"&lt;b&gt;not bold&lt;/b&gt;"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)</span></span></template>
+<template data-snippet="append"><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">'&lt;button type="button" class="btn" data-size="sm"&gt;Clicked 0 times&lt;/button&gt;'</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">.</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">on</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"click"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">function</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> () {</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">const</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">clicks</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">=</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">Number</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">this</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">.dataset.clicks </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">??</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">0</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">) </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">+</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">1</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">;</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  </span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">this</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">data</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"clicks"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, clicks).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">text</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">`Clicked ${</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">clicks</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">} times`</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">);</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">})</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">.</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">appendTo</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#sandbox .dq-toolbar"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)</span></span></template>
+<template data-snippet="transition"><span><span style="--shiki-light:#66707B;--shiki-dark:#8B949E">// NAMES: { a: "Alpha", b: "Beta", c: "Gamma" }</span></span><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#dq-list"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">morph</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  [</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"c"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"b"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"a"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">].</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">map</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">((</span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">key</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">) </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">=&gt;</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> ({ type: </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"li"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, attributes: { key, id: </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">`dq-${</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">key</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">}`</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> }, children: [</span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">NAMES</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">[key]] })),</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">  { transition: { type: </span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"fade"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">, duration: </span><span style="--shiki-light:#023B95;--shiki-dark:#79C0FF">300</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> } },</span></span><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">)</span></span></template>
+<template data-snippet="species"><span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#dq-list li"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">map</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">((</span><span style="--shiki-light:#702C00;--shiki-dark:#FFA657">li</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">) </span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">=&gt;</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3"> li.textContent)</span></span></template>
+<template data-snippet="form"><span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">[</span><span style="--shiki-light:#A0111F;--shiki-dark:#FF7B72">...</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">df$</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">(</span><span style="--shiki-light:#032563;--shiki-dark:#A5D6FF">"#dq-form"</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">).</span><span style="--shiki-light:#622CBC;--shiki-dark:#D2A8FF">form</span><span style="--shiki-light:#0E1116;--shiki-dark:#E6EDF3">()]</span></span></template>
+<!-- snippets:end -->
+
+<!-- The bundles this site documents, as copies of dist/ (scripts/docs.ts); module scripts run in this order. -->
+<script type="module" src="assets/defuss-morph.min.js"></script>
+<script type="module" src="assets/defuss-query.min.js"></script>
+<script type="module" src="assets/site.js"></script>
+</body>
+</html>
